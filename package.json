@@ -24,6 +24,7 @@
     "@fortawesome/free-regular-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@google/generative-ai": "^0.1.0",
     "@hookform/resolvers": "^3.10.0",
     "@langchain/core": "0.3.36",
     "@langchain/openai": "^0.4.2",
@@ -56,8 +57,11 @@
     "@radix-ui/react-toggle-group": "^1.1.1",
     "@radix-ui/react-toolbar": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.1.7",
+    "@supabase/auth-ui-react": "^0.4.7",
+    "@supabase/ssr": "^0.6.1",
     "@t3-oss/env-nextjs": "^0.10.1",
     "@tanstack/react-query": "^5.65.1",
+    "@types/jsdom": "^21.1.7",
     "@types/lodash.debounce": "^4.0.9",
     "@types/prismjs": "^1.26.5",
     "@udecode/cmdk": "^0.1.1",
@@ -122,6 +126,7 @@
     "nanoid": "^5.0.9",
     "next": "14.2.23",
     "next-themes": "^0.3.0",
+    "pptxgenjs": "^4.0.1",
     "prisma": "^5.22.0",
     "prismjs": "^1.29.0",
     "prosemirror-commands": "^1.6.2",
@@ -159,8 +164,7 @@
     "use-file-picker": "^2.1.2",
     "vaul": "^0.9.9",
     "zod": "^3.24.1",
-    "zustand": "^4.5.6",
-    "@google/generative-ai": "^0.1.0"
+    "zustand": "^4.5.6"
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",

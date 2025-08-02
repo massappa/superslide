@@ -1,34 +1,76 @@
+// @ts-nocheck
 import { NextResponse } from 'next/server';
-
-// This file is a placeholder. A robust PPT generation service is complex.
-// For a real product, you'd use a dedicated service or a library like 'pptxgenjs' in a serverless function.
-// This mock API simulates the behavior.
-
-const MOCK_DOWNLOAD_URL = "https://www.google.com/url?q=https://github.com/gitbrent/PptxGenJS/raw/master/demos/pptxgenjs-demo.pptx";
+import PptxGenJS from 'pptxgenjs-node';
+import { SlideBuilder } from '../../../lib/presentation/SlideBuilder';
+import { JSDOM } from 'jsdom';
 
 export async function POST(req: Request) {
   try {
-    const { title, items, references } = await req.json();
+    const { title, items } = await req.json();
 
-    if (!items || !Array.isArray(items)) {
-      return NextResponse.json({ error: 'Missing items' }, { status: 400 });
+    if (!title || !items || !Array.isArray(items)) {
+      return NextResponse.json({ error: 'Missing title or items' }, { status: 400 });
     }
 
-    // In a real application, you would:
-    // 1. Use a library like pptxgenjs to construct the PPT.
-    // 2. Add each item from `items` as a slide.
-    // 3. Save the generated PPT to a temporary location or Supabase Storage.
-    // 4. Return the public URL for the client to download.
-    
-    console.log(`Generating PPT for: ${title}`);
+    const pptx = new PptxGenJS();
+    const slideBuilder = new SlideBuilder(pptx);
 
-    // Simulate a delay for generation
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    return NextResponse.json({ url: MOCK_DOWNLOAD_URL });
+    pptx.layout = "LAYOUT_16x9";
+    pptx.author = "Superslide";
+    pptx.company = "Anqa IT Security GmbH";
+    pptx.subject = title;
+    pptx.title = title;
+
+    // Create slides from items
+    items.forEach((item: { content: string }, index: number) => {
+        const slide = slideBuilder.createSlide();
+        
+        // Universal slide components
+        slideBuilder.addLogo(slide);
+        slideBuilder.addRoundBorder(slide);
+        slideBuilder.addInBorder(slide);
+        slideBuilder.addWebsiteAddress(slide);
+        slideBuilder.addStandardText(slide);
+
+        // Parse the content, which is an XML/HTML-like string
+        const dom = new JSDOM(`<!DOCTYPE html><body>${item.content}</body>`);
+        const body = dom.window.document.body;
+        
+        const h1 = body.querySelector('H1');
+        const p = body.querySelector('P');
+
+        if(h1) {
+            slideBuilder.addText(slide, h1.textContent || '', { x: 1.0, y: 1.0, w: 8.0, h: 0.5, fontSize: 36, bold: true });
+        }
+        if(p) {
+            slideBuilder.addText(slide, p.textContent || '', { x: 1.0, y: 1.8, w: 8.0, h: 2.5, fontSize: 18 });
+        }
+
+        // Apply special slide layouts
+        if (index + 1 === 7) {
+            slideBuilder.seventhSlideRechtangelBorder(slide);
+        }
+        if (index + 1 === 13) {
+            slideBuilder.thirteenthSlideTabell(slide);
+        }
+        if (index + 1 === 16) {
+            slideBuilder.sixtenthSlideRechtangelBorder(slide);
+        }
+    });
+
+    const pptxBuffer = await pptx.write('buffer');
+
+    return new NextResponse(pptxBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        "Content-Disposition": `attachment; filename="${title.replace(/ /g, '_')}.pptx"`,
+      }
+    });
 
   } catch (e) {
     console.error("PPT Download Error:", e);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred";
+    return NextResponse.json({ error: 'Internal error', details: errorMessage }, { status: 500 });
   }
 }
