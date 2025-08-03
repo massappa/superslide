@@ -1,6 +1,5 @@
 "use client";
-
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { usePresentationState } from "@/states/presentation-state";
 import { SlidePreview } from "./SlidePreview";
 import { CustomThemeFontLoader } from "./FontLoader";
@@ -8,24 +7,42 @@ import { LoadingState } from "./Loading";
 import { Resizable } from "re-resizable";
 import { GripVertical } from "lucide-react";
 import { usePresentationSlides } from "@/hooks/presentation/usePresentationSlides";
-import { type ThemeProperties } from "@/lib/presentation/themes";
+import { type ThemeProperties, themes, setThemeVariables } from "@/lib/presentation/themes";
 import { ThemeBackground } from "../theme/ThemeBackground";
+import { PresentationSlidesView } from "./PresentationSlidesView";
+import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
+import { useTheme } from "next-themes";
+import { type TElement } from "@udecode/plate-common";
 
 interface PresentationLayoutProps {
-  children: React.ReactNode;
   isLoading?: boolean;
-  themeData?: ThemeProperties;
 }
 
-export function PresentationLayout({
-  children,
-  isLoading = false,
-  themeData,
-}: PresentationLayoutProps) {
-  const { currentSlideIndex, setCurrentSlideIndex } = usePresentationState();
-  const [sidebarWidth, setSidebarWidth] = useState(150);
-
+export default function PresentationLayout({ isLoading = false }: PresentationLayoutProps) {
+  const {
+    currentSlideIndex,
+    setCurrentSlideIndex,
+    slides,
+    setSlides,
+    theme: themeName,
+  } = usePresentationState();
+  const [sidebarWidth, setSidebarWidth] = useState(200);
   const { scrollToSlide } = usePresentationSlides();
+  const { save } = useDebouncedSave({ delay: 1000 });
+  const { resolvedTheme } = useTheme();
+
+  const themeData: ThemeProperties | undefined = (themes as any)[themeName];
+
+  useEffect(() => {
+    if (themeData) {
+      setThemeVariables(themeData, resolvedTheme === 'dark');
+    }
+  }, [themeData, resolvedTheme]);
+
+  const handleSlideChange = useCallback((value: TElement[], index: number) => {
+    setSlides(slides.map((slide, i) => (i === index ? { ...slide, content: value } : slide)));
+    save();
+  }, [slides, setSlides, save]);
 
   const handleSlideClick = useCallback(
     (index: number) => {
@@ -36,10 +53,9 @@ export function PresentationLayout({
   );
 
   const handleResize = useCallback(
-    (_e: unknown, _direction: unknown, _ref: unknown, d: { width: number }) => {
-      setSidebarWidth((prev) => prev + d.width);
-    },
-    []
+    (_e: unknown, _direction: unknown, ref: HTMLElement, d: { width: number }) => {
+      setSidebarWidth(ref.offsetWidth);
+    }, []
   );
 
   if (isLoading) {
@@ -50,33 +66,30 @@ export function PresentationLayout({
     <ThemeBackground className="h-full w-full">
       {themeData && <CustomThemeFontLoader themeData={themeData} />}
       <div className="flex h-full">
-        <div className="flex h-full items-center">
-          <Resizable
-            size={{ width: sidebarWidth }}
-            minWidth={100}
-            maxWidth={300}
-            enable={{ right: true }}
-            onResizeStop={handleResize}
-            handleComponent={{
-              right: (
-                <div className="group/resize relative flex h-full w-1 cursor-col-resize bg-border">
-                  <GripVertical className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-muted-foreground opacity-0 group-hover/resize:opacity-100" />
-                </div>
-              ),
-            }}
-          >
-            <div className="h-max max-h-[90vh] overflow-auto">
-              <SlidePreview
-                onSlideClick={handleSlideClick}
-                currentSlideIndex={currentSlideIndex}
-              />
-            </div>
-          </Resizable>
-        </div>
-
-        {/* Main Presentation Content - Scrollable */}
+        <Resizable
+          size={{ width: sidebarWidth, height: "100%" }}
+          minWidth={150}
+          maxWidth={400}
+          enable={{ right: true }}
+          onResize={handleResize}
+          handleComponent={{
+            right: (
+              <div className="group/resize relative flex h-full w-1.5 cursor-col-resize items-center justify-center bg-transparent">
+                <div className="h-full w-px bg-border group-hover/resize:w-0.5 group-hover/resize:bg-primary" />
+              </div>
+            ),
+          }}
+        >
+          <ScrollArea className="h-full bg-background/50">
+            <SlidePreview
+              onSlideClick={handleSlideClick}
+              currentSlideIndex={currentSlideIndex}
+            />
+          </ScrollArea>
+        </Resizable>
+        
         <div className="presentation-slides max-h-full flex-1 overflow-auto pb-20">
-          {children}
+          <PresentationSlidesView handleSlideChange={handleSlideChange} isGeneratingPresentation={false} />
         </div>
       </div>
     </ThemeBackground>

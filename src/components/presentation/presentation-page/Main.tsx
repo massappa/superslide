@@ -1,28 +1,38 @@
-"use client"
-import React from 'react';
-import { usePresentationState } from '@/states/presentation-state';
-import SlideContainer from './SlideContainer';
-import { PlateSlide } from '@/components/presentation/utils/parser';
+"use client";
+import React from "react";
+import { usePresentationState } from "@/states/presentation-state";
+import PresentationLayout from "./PresentationLayout";
+import { PlateSlide } from "@/components/presentation/utils/parser";
 
 interface MainProps {
   initialSlides: PlateSlide[];
+  presentationId: string;
+  presentationTitle: string;
 }
 
-const Main: React.FC<MainProps> = ({ initialSlides }) => {
-  const { setSlides, items } = usePresentationState();
+const Main: React.FC<MainProps> = ({
+  initialSlides,
+  presentationId,
+  presentationTitle,
+}) => {
+  const { setSlides, setCurrentPresentation } = usePresentationState();
 
   React.useEffect(() => {
-    if (initialSlides) {
-      setSlides(initialSlides);
-    }
-  }, [initialSlides, setSlides]);
+    // Set the initial state when the component mounts
+    setSlides(initialSlides);
+    setCurrentPresentation(presentationId, presentationTitle);
+  }, [
+    initialSlides,
+    presentationId,
+    presentationTitle,
+    setSlides,
+    setCurrentPresentation,
+  ]);
 
   return (
-    <main>
-      {items.map((slide, index) => (
-        <SlideContainer key={slide.id} slide={slide} index={index} />
-      ))}
-    </main>
+    <PresentationLayout>
+      {/* The children for PresentationLayout are rendered within it, not here */}
+    </PresentationLayout>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import { useDrop } from "react-dnd";
+import { useDrop, type DropTargetMonitor } from "react-dnd";
 import { cn } from "@udecode/cn";
-import { DRAG_ITEM_BLOCK } from "@udecode/plate-dnd";
+import { DRAG_ITEM_BLOCK, type ElementDragItemNode } from "@udecode/plate-dnd";
 import { type PlateEditor, useEditorRef } from "@udecode/plate-core/react";
 import { findNode, removeNodes, type TElement } from "@udecode/plate-common";
 import { usePresentationState } from "@/states/presentation-state";
@@ -10,11 +10,8 @@ import { type LayoutType } from "@/components/presentation/utils/parser";
 
 function removeNodeById(editor: PlateEditor, id: string) {
   const nodeWithPath = findNode(editor, {
-    match: {
-      id,
-    },
+    match: { id },
   });
-
   if (!nodeWithPath) return;
   const [element, path] = nodeWithPath;
   removeNodes(editor, { at: path });
@@ -26,33 +23,28 @@ export default function LayoutImageDrop({
 }: {
   slideIndex: number;
 }) {
-  // Create drop zones for top, left, and right
   const topRef = useRef<HTMLDivElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
   const editor = useEditorRef();
 
   const handleImageDrop = (
-    item: { element: TElement },
+    item: ElementDragItemNode,
     layoutType: LayoutType
   ) => {
-    // Only handle image elements
     if (item?.element?.type !== ImagePlugin.key) return;
-
-    // Store the image URL and query
+    
     let imageUrl = item.element.url as string;
-    let imageQuery = item.element.query as string;
-
-    // Check if the image is from the editor and needs to be removed
+    let imageQuery = (item.element as any).query as string || '';
     const id = item.element.id as string;
+    
+    // Remove the node from the editor to prevent duplication
     const element = removeNodeById(editor, id);
+
     if (element?.url) imageUrl = element.url as string;
-    if (element?.query) imageQuery = element.query as string;
+    if ((element as any)?.query) imageQuery = (element as any).query as string;
 
-    // Get the current slides state
     const { slides, setSlides } = usePresentationState.getState();
-
-    // Update the slides array with the new root image and layout type
     const updatedSlides = slides.map((slide, index) => {
       if (index === slideIndex) {
         return {
@@ -68,58 +60,32 @@ export default function LayoutImageDrop({
       }
       return slide;
     });
-
-    // Update the slides state
     setSlides(updatedSlides);
   };
 
-  // Setup drop zones
-  const [{ isTopOver }, dropTop] = useDrop({
+  const useLayoutDrop = (layoutType: LayoutType) => useDrop({
     accept: [DRAG_ITEM_BLOCK],
-    canDrop: (item: { element: TElement }) =>
-      item.element.type === ImagePlugin.key,
-    drop: (item) => {
-      handleImageDrop(item, "vertical");
-      return { droppedInLayoutZone: true }; // Add this return value
+    canDrop: (item: ElementDragItemNode) => item.element.type === ImagePlugin.key,
+    drop: (item: ElementDragItemNode) => {
+      handleImageDrop(item, layoutType);
+      return { droppedInLayoutZone: true };
     },
-    collect: (monitor) => ({
-      isTopOver: monitor.isOver() && monitor.canDrop(),
+    collect: (monitor: DropTargetMonitor) => ({
+      isOver: monitor.isOver() && monitor.canDrop(),
     }),
   });
 
-  const [{ isLeftOver }, dropLeft] = useDrop({
-    accept: [DRAG_ITEM_BLOCK],
-    canDrop: (item: { element: TElement }) =>
-      item?.element?.type === ImagePlugin.key,
-    drop: (item) => {
-      handleImageDrop(item, "left");
-      return { droppedInLayoutZone: true }; // Add this return value
-    },
-    collect: (monitor) => ({
-      isLeftOver: monitor.isOver() && monitor.canDrop(),
-    }),
-  });
+  const [{ isTopOver }, dropTop] = useLayoutDrop("vertical");
+  const [{ isLeftOver }, dropLeft] = useLayoutDrop("left");
+  const [{ isRightOver }, dropRight] = useLayoutDrop("right");
 
-  const [{ isRightOver }, dropRight] = useDrop({
-    accept: [DRAG_ITEM_BLOCK],
-    canDrop: (item: { element: TElement }) =>
-      item.element.type === ImagePlugin.key,
-    drop: (item) => {
-      handleImageDrop(item, "right");
-      return { droppedInLayoutZone: true }; // Add this return value
-    },
-    collect: (monitor) => ({
-      isRightOver: monitor.isOver() && monitor.canDrop(),
-    }),
-  });
-  // Connect the drop refs
   dropTop(topRef);
   dropLeft(leftRef);
   dropRight(rightRef);
 
   return (
     <>
-      {/* Top drop zone */}
+      {/* Top Drop Zone */}
       <div
         ref={topRef}
         className={cn(
@@ -128,8 +94,7 @@ export default function LayoutImageDrop({
           "transition-colors duration-200"
         )}
       />
-
-      {/* Left drop zone */}
+      {/* Left Drop Zone */}
       <div
         ref={leftRef}
         className={cn(
@@ -138,8 +103,7 @@ export default function LayoutImageDrop({
           "transition-colors duration-200"
         )}
       />
-
-      {/* Right drop zone */}
+      {/* Right Drop Zone */}
       <div
         ref={rightRef}
         className={cn(

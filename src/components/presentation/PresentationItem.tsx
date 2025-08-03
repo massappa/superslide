@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,12 +8,11 @@ import {
   Star,
   Trash2,
   Pencil,
-  Presentation,
+  Presentation as PresentationIcon,
   Copy,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,10 +29,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-import { type BaseDocument } from "@prisma/client";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
 import { usePresentationState } from "@/states/presentation-state";
 import {
   deletePresentations,
@@ -46,15 +42,10 @@ import {
   addToFavorites,
   removeFromFavorites,
 } from "@/app/_actions/presentation/toggleFavorite";
+import type { Presentation } from "@/types/database";
 
 interface PresentationItemProps {
-  presentation: BaseDocument & {
-    presentation: {
-      id: string;
-      content: unknown;
-      theme: string;
-    } | null;
-  };
+  presentation: Presentation;
   isFavorited?: boolean;
   isSelecting?: boolean;
   onSelect?: (id: string) => void;
@@ -74,7 +65,6 @@ export function PresentationItem({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const setCurrentPresentation = usePresentationState(
     (state) => state.setCurrentPresentation
   );
@@ -92,28 +82,19 @@ export function PresentationItem({
         await queryClient.invalidateQueries({
           queryKey: ["presentations-all"],
         });
-        await queryClient.invalidateQueries({ queryKey: ["recent-items"] });
         setIsDeleteDialogOpen(false);
-        toast({
-          title: "Success",
-          description: "Presentation deleted successfully",
-        });
+        toast.success("Presentation deleted successfully");
       },
-      onError: (error) => {
+      onError: (error: Error) => {
         console.error("Failed to delete presentation:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to delete presentation",
-        });
+        toast.error("Error", { description: "Failed to delete presentation" });
       },
     });
 
   const { mutate: renameMutation, isPending: isRenaming } = useMutation({
     mutationFn: async () => {
       const newTitle = prompt("Enter new title", presentation.title || "");
-      if (!newTitle) return null;
-
+      if (!newTitle || newTitle === presentation.title) return null;
       const result = await updatePresentationTitle(presentation.id, newTitle);
       if (!result.success) {
         throw new Error(result.message ?? "Failed to rename presentation");
@@ -122,19 +103,11 @@ export function PresentationItem({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["presentations-all"] });
-      await queryClient.invalidateQueries({ queryKey: ["recent-items"] });
-      toast({
-        title: "Success",
-        description: "Presentation renamed successfully",
-      });
+      toast.success("Presentation renamed successfully");
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Failed to rename presentation:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to rename presentation",
-      });
+      toast.error("Error", { description: "Failed to rename presentation" });
     },
   });
 
@@ -148,59 +121,35 @@ export function PresentationItem({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["presentations-all"] });
-      toast({
-        title: "Success",
-        description: "Presentation duplicated successfully",
-      });
+      toast.success("Presentation duplicated successfully");
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Failed to duplicate presentation:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to duplicate presentation",
-      });
+      toast.error("Error", { description: "Failed to duplicate presentation" });
     },
   });
 
   const { mutate: favoriteMutation, isPending: isFavoritePending } =
     useMutation({
       mutationFn: async () => {
-        if (isFavorited) {
-          return removeFromFavorites(presentation.id);
-        }
-        return addToFavorites(presentation.id);
+        return isFavorited
+          ? removeFromFavorites(presentation.id)
+          : addToFavorites(presentation.id);
       },
       onSuccess: async (result) => {
         if (!result.success) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to update favorites",
-          });
+          toast.error("Failed to update favorites");
           return;
         }
-
-        await queryClient.invalidateQueries({
-          queryKey: ["documents", "favorites"],
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ["presentations-all"],
-        });
-
-        toast({
-          title: "Success",
-          description: isFavorited
-            ? "Presentation removed from favorites"
-            : "Presentation added to favorites",
-        });
+        await queryClient.invalidateQueries({ queryKey: ["presentations-all"] });
+        toast.success(
+          isFavorited
+            ? "Removed from favorites"
+            : "Added to favorites"
+        );
       },
       onError: () => {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to update favorites",
-        });
+        toast.error("Failed to update favorites");
       },
     });
 
@@ -210,34 +159,24 @@ export function PresentationItem({
       onSelect(presentation.id);
       return;
     }
-
     try {
       setIsNavigating(true);
       setCurrentPresentation(presentation.id, presentation.title);
-
-      // Check presentation status
       const response = await getPresentationContent(presentation.id);
-
       if (!response.success) {
         throw new Error(
           response.message ?? "Failed to check presentation status"
         );
       }
-
-      console.log(response);
-      // Route based on content status
-      if (Object.keys(response?.presentation?.content ?? {}).length > 0) {
+      const slides = (response.presentation?.content as { slides: unknown[] })?.slides ?? [];
+      if (slides.length > 0) {
         router.push(`/presentation/${presentation.id}`);
       } else {
         router.push(`/presentation/generate/${presentation.id}`);
       }
     } catch (error) {
       console.error("Failed to navigate:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to open presentation",
-      });
+      toast.error("Failed to open presentation");
     } finally {
       setIsNavigating(false);
     }
@@ -258,7 +197,7 @@ export function PresentationItem({
           {isSelecting ? (
             <div
               className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-full border",
+                "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border",
                 isSelected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "bg-background"
@@ -267,28 +206,27 @@ export function PresentationItem({
               {isSelected && <Check className="h-3 w-3" />}
             </div>
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               ) : (
-                <Presentation className="h-5 w-5 text-primary" />
+                <PresentationIcon className="h-5 w-5 text-primary" />
               )}
             </div>
           )}
-          <div>
-            <h3 className="font-medium text-foreground">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-medium text-foreground">
               {isLoading ? "Loading..." : presentation.title || "Untitled"}
             </h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               {isLoading
                 ? "Loading..."
-                : new Date(presentation.updatedAt).toLocaleDateString()}
+                : new Date(presentation.updated_at ?? new Date()).toLocaleDateString()}
             </p>
           </div>
         </div>
-
-        {!isSelecting && (
-          <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+        {!isSelecting && !isLoading && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -317,7 +255,7 @@ export function PresentationItem({
                   <Star
                     className={cn(
                       "mr-2 h-4 w-4",
-                      isFavorited && "fill-primary"
+                      isFavorited && "fill-yellow-400 text-yellow-500"
                     )}
                   />
                   {isFavorited ? "Remove from favorites" : "Add to favorites"}
@@ -335,7 +273,6 @@ export function PresentationItem({
           </div>
         )}
       </div>
-
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}

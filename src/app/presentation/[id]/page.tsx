@@ -1,28 +1,37 @@
-import { getPresentation } from "@/app/_actions/presentation/presentationActions";
-import PresentationLayout from "@/components/presentation/presentation-page/PresentationLayout";
-import Main from "@/components/presentation/presentation-page/Main";
-import { notFound } from "next/navigation";
-import { PlateSlide } from "@/components/presentation/utils/parser";
+import {
+  getPresentation,
+  getSlides,
+} from "@/app/_actions/presentation/presentationActions";
+import PresentationPage from "@/components/presentation/presentation-page/Main";
+import React from "react";
 
-export default async function PresentationPage({
-  params,
-}: {
-  params: { id:string };
-}) {
+export default async function Page({ params }: { params: { id: string } }) {
   const { id } = params;
-  const { success, presentation } = await getPresentation(id);
 
-  if (!success || !presentation) {
-    return notFound();
+  // Fetch initial data on the server
+  const presentationResult = await getPresentation(id);
+  const slidesResult = await getSlides(id);
+
+  if (!presentationResult.success || !slidesResult.success) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Presentation not found</h1>
+          <p className="text-muted-foreground">
+            {presentationResult.message || slidesResult.message}
+          </p>
+        </div>
+      </div>
+    );
   }
-
-  // Ensure content exists and has a slides array
-  const initialSlides = (presentation.content as { slides: PlateSlide[] })?.slides || [];
-
+  const presentation = presentationResult.presentation;
+  const initialSlides = slidesResult.slides;
 
   return (
-    <PresentationLayout>
-      <Main initialSlides={initialSlides} />
-    </PresentationLayout>
+    <PresentationPage
+      initialSlides={initialSlides}
+      presentationId={presentation.id}
+      presentationTitle={presentation.title}
+    />
   );
 }

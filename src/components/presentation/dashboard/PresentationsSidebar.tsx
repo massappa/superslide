@@ -1,12 +1,11 @@
 "use client";
-
 import { useEffect } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
-import { FileX, Plus } from "lucide-react";
+import { FileX, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -17,26 +16,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePresentationState } from "@/states/presentation-state";
 import { useMutation } from "@tanstack/react-query";
 import { PresentationItem } from "../PresentationItem";
-import { type Prisma } from "@prisma/client";
+import type { Presentation } from "@/types/database";
 import { SelectionControls } from "./SelectionControls";
 import { deletePresentations } from "@/app/_actions/presentation/presentationActions";
 import { fetchPresentations } from "@/app/_actions/presentation/fetchPresentations";
 
-type PresentationDocument = Prisma.BaseDocumentGetPayload<{
-  include: {
-    presentation: true;
-  };
-}>;
-
 interface PresentationResponse {
-  items: PresentationDocument[];
+  items: Presentation[];
   hasMore: boolean;
 }
 
 export function PresentationsSidebar() {
   const { ref: loadMoreRef, inView } = useInView();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const {
     isSelecting,
     selectedPresentations,
@@ -49,36 +41,10 @@ export function PresentationsSidebar() {
   } = usePresentationState();
 
   const handleCreateNew = () => {
-    setIsSheetOpen(false);
+    // This assumes clicking "Create New" on the dashboard is the primary flow
+    // and will close the sheet to show the main dashboard view.
+    setIsSheetOpen(false); 
   };
-
-  const { mutate: deleteSelectedPresentations } = useMutation({
-    mutationFn: async () => {
-      const result = await deletePresentations(selectedPresentations);
-      if (!result.success && !result.partialSuccess) {
-        throw new Error(result.message ?? "Failed to delete presentations");
-      }
-      return result;
-    },
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ["presentations-all"] });
-      await queryClient.invalidateQueries({ queryKey: ["recent-items"] });
-      deselectAllPresentations();
-      toggleSelecting();
-      toast({
-        title: "Success",
-        description: result.message || "Selected presentations deleted",
-      });
-    },
-    onError: (error) => {
-      console.error("Failed to delete presentations:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to delete presentations",
-      });
-    },
-  });
 
   const {
     data,
@@ -89,10 +55,7 @@ export function PresentationsSidebar() {
     isError,
   } = useInfiniteQuery<PresentationResponse>({
     queryKey: ["presentations-all"],
-    queryFn: async ({ pageParam = 0 }) => {
-      const response = await fetchPresentations(pageParam as number);
-      return response as PresentationResponse;
-    },
+    queryFn: async ({ pageParam = 0 }) => fetchPresentations(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage: PresentationResponse, allPages) => {
       if (lastPage?.hasMore) {
@@ -101,6 +64,29 @@ export function PresentationsSidebar() {
       return undefined;
     },
   });
+
+  const { mutate: deleteSelectedPresentations, isPending: isDeleting } = useMutation({
+    mutationFn: async () => {
+      const result = await deletePresentations(selectedPresentations);
+      if (!result.success && !result.partialSuccess) {
+        throw new Error(result.message ?? "Failed to delete presentations");
+      }
+      return result;
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["presentations-all"] });
+      deselectAllPresentations();
+      toggleSelecting();
+      toast.success(result.message || "Selected presentations deleted");
+    },
+    onError: (error: Error) => {
+      console.error("Failed to delete presentations:", error);
+      toast.error("Error", {
+        description: "Failed to delete selected presentations.",
+      });
+    },
+  });
+
 
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
@@ -111,45 +97,46 @@ export function PresentationsSidebar() {
   const allPresentations = data?.pages.flatMap((page) => page.items) ?? [];
 
   const handleSelectAll = () => {
-    selectAllPresentations(
-      allPresentations.map((presentation) => presentation.id)
-    );
+    selectAllPresentations(allPresentations.map((p) => p.id));
   };
 
   const sidebarContent = () => {
     if (isLoading) {
-      return Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="mb-4">
-          <Skeleton className="h-16 w-full" />
+      return (
+        <div className="space-y-3 p-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[76px] w-full" />
+          ))}
         </div>
-      ));
+      );
     }
-
     if (isError) {
       return (
-        <div className="flex flex-col items-center justify-center gap-4 p-8">
+        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
           <FileX className="h-12 w-12 text-muted-foreground" />
-          <p className="text-center text-sm text-muted-foreground">
-            Failed to load presentations
+          <p className="text-sm text-muted-foreground">
+            Failed to load presentations.
+            <br />
+            Please try again later.
           </p>
         </div>
       );
     }
-
     if (allPresentations.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center gap-4 p-8">
+        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
           <FileX className="h-12 w-12 text-muted-foreground" />
-          <p className="text-center text-sm text-muted-foreground">
-            No presentations found
+          <p className="text-sm text-muted-foreground">
+            You haven't created any
+            <br />
+            presentations yet.
           </p>
         </div>
       );
     }
-
     return (
       <>
-        <div className="space-y-4 p-0.5">
+        <div className="space-y-2 p-0.5">
           {allPresentations.map((presentation) => (
             <PresentationItem
               key={presentation.id}
@@ -160,56 +147,50 @@ export function PresentationsSidebar() {
             />
           ))}
         </div>
-        {hasNextPage && (
-          <div ref={loadMoreRef} className="py-8">
-            <div className="flex justify-center">
-              <Skeleton className="h-8 w-8 rounded-full" />
-            </div>
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
+        <div ref={loadMoreRef} className="h-1" />
       </>
     );
   };
-
   return (
     <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
       <SheetContent
-        overlay={false}
         side="left"
-        className="absolute flex h-full w-[400px] flex-col p-0"
-        container={
-          typeof document !== "undefined"
-            ? document.querySelector<HTMLElement>(".notebook-section") ??
-              undefined
-            : undefined
-        }
+        className="flex h-full w-[400px] flex-col p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="p-6">
-          <SheetHeader className="space-y-4">
+        <div className="p-6 pb-2">
+          <SheetHeader className="space-y-4 text-left">
             <SheetTitle className="flex items-center justify-between">
               <span>Your Presentations</span>
             </SheetTitle>
-
-            {!isSelecting && (
-              <Button onClick={handleCreateNew} className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
-                Create New Presentation
-              </Button>
-            )}
-            <div className="flex items-center justify-end">
-              <SelectionControls
-                isSelecting={isSelecting}
-                selectedCount={selectedPresentations.length}
-                totalCount={allPresentations.length}
-                onToggleSelecting={toggleSelecting}
-                onSelectAll={handleSelectAll}
-                onDeselectAll={deselectAllPresentations}
-                onDelete={deleteSelectedPresentations}
-              />
+            <div className="flex items-center justify-between">
+              {!isSelecting && (
+                <Button onClick={handleCreateNew} className="w-full">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New Presentation
+                </Button>
+              )}
+              <div className="flex w-full items-center justify-end">
+                 <SelectionControls
+                    isSelecting={isSelecting}
+                    selectedCount={selectedPresentations.length}
+                    totalCount={allPresentations.length}
+                    onToggleSelecting={toggleSelecting}
+                    onSelectAll={handleSelectAll}
+                    onDeselectAll={deselectAllPresentations}
+                    onDelete={() => deleteSelectedPresentations()}
+                    isDeleting={isDeleting}
+                />
+              </div>
             </div>
           </SheetHeader>
         </div>
-        <ScrollArea className="flex-1 overflow-y-auto p-6 pt-0">
+        <ScrollArea className="flex-1 px-6 pt-2">
           {sidebarContent()}
         </ScrollArea>
       </SheetContent>

@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -21,6 +22,7 @@ export const signIn = async (formData: FormData) => {
 };
 
 export const signUp = async (formData: FormData) => {
+  const origin = headers().get("origin");
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const supabase = createClient();
@@ -29,12 +31,13 @@ export const signUp = async (formData: FormData) => {
     email,
     password,
     options: {
-      emailRedirectTo: `${location.origin}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   });
 
   if (error) {
-    return redirect("/login?message=Could not authenticate user");
+    console.error("Sign up error:", error);
+    return redirect("/login?message=Could not create user. Please try again.");
   }
 
   return redirect("/login?message=Check email to continue sign in process");

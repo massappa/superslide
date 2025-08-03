@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { usePresentationState } from "@/states/presentation-state";
 import { SlideParser } from "../utils/parser";
 import { updatePresentation } from "@/app/_actions/presentation/presentationActions";
-import { useCompletion } from "ai/react";
+import { useCompletion } from "@ai-sdk/react";
 
 interface StreamMetadata {
   author?: string;
