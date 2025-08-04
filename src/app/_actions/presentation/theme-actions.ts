@@ -2,7 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { utapi } from "@/hooks/globals/useUploadthing";
+import { UTApi } from "uploadthing/server";
+
+const utapi = new UTApi();
 
 // Schema for creating/updating a theme
 const themeSchema = z.object({

@@ -13,6 +13,7 @@ import { PresentationSlidesView } from "./PresentationSlidesView";
 import { useDebouncedSave } from "@/hooks/presentation/useDebouncedSave";
 import { useTheme } from "next-themes";
 import { type TElement } from "@udecode/plate-common";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PresentationLayoutProps {
   isLoading?: boolean;

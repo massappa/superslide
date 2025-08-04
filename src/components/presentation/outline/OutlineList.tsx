@@ -30,21 +30,73 @@ export function OutlineList() {
     setOutline,
     numSlides,
     isGeneratingOutline,
+    shouldStartOutlineGeneration,
+    setShouldStartOutlineGeneration,
+    setIsGeneratingOutline,
+    language,
+    presentationInput,
   } = usePresentationState();
 
   const [items, setItems] = useState<OutlineItemType[]>(
     initialItems.map((title, index) => ({
       id: (index + 1).toString(),
       title,
-    })),
+    }))
   );
+
+  useEffect(() => {
+    if (shouldStartOutlineGeneration) {
+      const generateOutline = async () => {
+        setIsGeneratingOutline(true);
+        try {
+          const response = await fetch("/api/presentation/outline", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: presentationInput,
+              numberOfCards: numSlides,
+              language: language,
+            }),
+          });
+
+          if (!response.body) {
+            throw new Error("No response body");
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let fullText = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            fullText += decoder.decode(value, { stream: true });
+            const newOutline = fullText
+              .split("#")
+              .map((s) => s.trim())
+              .filter((s) => s);
+            setOutline(newOutline);
+          }
+        } catch (error) {
+          console.error("Error generating outline:", error);
+        } finally {
+          setIsGeneratingOutline(false);
+          setShouldStartOutlineGeneration(false);
+        }
+      };
+
+      generateOutline();
+    }
+  }, [shouldStartOutlineGeneration]);
 
   useEffect(() => {
     setItems(
       initialItems.map((title, index) => ({
         id: (index + 1).toString(),
         title,
-      })),
+      }))
     );
   }, [initialItems]);
 
@@ -52,7 +104,7 @@ export function OutlineList() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    })
   );
 
   function handleDragEnd(event: DragEndEvent) {
@@ -73,7 +125,7 @@ export function OutlineList() {
   const handleTitleChange = (id: string, newTitle: string) => {
     setItems((items) => {
       const newItems = items.map((item) =>
-        item.id === id ? { ...item, title: newTitle } : item,
+        item.id === id ? { ...item, title: newTitle } : item
       );
       // Update the outline in the store
       setOutline(newItems.map((item) => item.title));
