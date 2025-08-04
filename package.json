@@ -120,6 +120,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.5.2",
     "input-otp": "^1.4.2",
+    "jsdom": "^26.1.0",
     "langchain": "^0.3.14",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.379.0",

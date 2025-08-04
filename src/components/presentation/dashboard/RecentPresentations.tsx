@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Calendar,
   Loader2,
+  Presentation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,8 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import type { Presentation } from "@/types/database";
+import type { Presentation as PresentationType } from "@/types/database";
 import { fetchPresentations } from "@/app/_actions/presentation/fetchPresentations";
 import {
   deletePresentations,
@@ -45,7 +45,6 @@ import {
   addToFavorites,
   removeFromFavorites,
 } from "@/app/_actions/presentation/toggleFavorite";
-
 export function RecentPresentations() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -118,7 +117,7 @@ export function RecentPresentations() {
     },
   });
 
-  const handlePresentationClick = async (presentation: Presentation) => {
+  const handlePresentationClick = async (presentation: PresentationType) => {
     try {
       setIsNavigating(presentation.id);
       setCurrentPresentation(presentation.id, presentation.title);
@@ -222,7 +221,7 @@ export function RecentPresentations() {
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-primary/10">
-                  <PresentationIcon className="h-12 w-12 text-primary/50" />
+                  <Presentation className="h-12 w-12 text-primary/50" />
                 </div>
               )}
             </div>
