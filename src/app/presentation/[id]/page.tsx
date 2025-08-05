@@ -4,9 +4,15 @@ import {
 } from "@/app/_actions/presentation/presentationActions";
 import PresentationPage from "@/components/presentation/presentation-page/Main";
 import React from "react";
+import PresentationLoading from "@/app/loading";
 
 export default async function Page({ params }: { params: { id: string } }) {
   const { id } = params;
+
+  // If the ID is "placeholder", render the loading component
+  if (id === "placeholder") {
+    return <PresentationLoading />;
+  }
 
   // Fetch initial data on the server
   const presentationResult = await getPresentation(id);
