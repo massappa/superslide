@@ -16,6 +16,7 @@ export type HeadingElement = TElement & {
 export type ImageElement = TElement & {
   type: "img";
   url: string;
+  query?: string;
 };
 export type ColumnItemElement = TElement & {
   type: typeof ColumnItemPlugin.key;
@@ -917,15 +918,20 @@ export class SlideParser {
    * Create an image element with strict validation for complete queries
    */
   private createImage(node: XMLNode): ImageElement | null {
-    const { src, ...rest } = node.attributes;
+    const { src, alt, ...rest } = node.attributes;
 
     // Validate src
     if (src && src.trim().length > 0) {
-      // Basic validation for a URL format
-      if (src.startsWith("http://") || src.startsWith("https://")) {
+      const trimmedSrc = src.trim();
+      // Accept placeholders, data URLs, or proper HTTP URLs
+      if (trimmedSrc === "placeholder" || 
+          trimmedSrc.startsWith("http://") || 
+          trimmedSrc.startsWith("https://") ||
+          trimmedSrc.startsWith("data:")) {
         return {
           type: "img",
-          url: src.trim(),
+          url: trimmedSrc,
+          query: alt || "", // Use alt as the query for image generation
           children: [{ text: "" }],
           ...rest,
         } as ImageElement;

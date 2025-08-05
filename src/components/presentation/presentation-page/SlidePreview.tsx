@@ -3,10 +3,61 @@
 import React from "react";
 import { usePresentationState } from "@/states/presentation-state";
 import { cn } from "@/lib/utils";
+import { type PlateNode } from "@/components/presentation/utils/parser";
+import Image from "next/image";
 
 interface SlidePreviewProps {
   onSlideClick: (index: number) => void;
   currentSlideIndex: number;
+}
+
+interface ElementNode {
+  type: string;
+  children?: PlateNode[];
+  url?: string;
+  [key: string]: unknown;
+}
+
+function SimpleContentRenderer({ content }: { content: PlateNode[] }) {
+  const renderNode = (node: PlateNode, index: number): React.ReactNode => {
+    if ('text' in node) {
+      return <span key={index}>{String(node.text)}</span>;
+    }
+
+    const element = node as ElementNode;
+    const children = element.children?.map((child: PlateNode, i: number) => renderNode(child, i)) ?? [];
+
+    switch (element.type) {
+      case 'h1':
+        return <h1 key={index} className="text-lg font-bold mb-1">{children}</h1>;
+      case 'h2':
+        return <h2 key={index} className="text-base font-semibold mb-1">{children}</h2>;
+      case 'h3':
+        return <h3 key={index} className="text-sm font-medium mb-1">{children}</h3>;
+      case 'p':
+        return <p key={index} className="text-xs mb-1">{children}</p>;
+      case 'img':
+        const imageUrl = element.url === 'placeholder' ? '/api/placeholder' : element.url;
+        return imageUrl ? (
+          <Image 
+            key={index} 
+            src={imageUrl} 
+            alt="" 
+            width={100} 
+            height={60} 
+            className="max-w-full h-auto" 
+          />
+        ) : null;
+      default:
+        return <div key={index} className="text-xs">{children}</div>;
+    }
+  };
+
+  return (
+    <div className="text-xs text-muted-foreground space-y-1 p-2">
+      {content.map((node, index) => renderNode(node, index))}
+    </div>
+  );
 }
 
 export function SlidePreview({
@@ -39,7 +90,11 @@ export function SlidePreview({
             <div
               id={`slide-preview-${index}`}
               className="pointer-events-none h-max min-h-9 w-full overflow-hidden bg-card"
-            />
+            >
+              {slide.content && slide.content.length > 0 && (
+                <SimpleContentRenderer content={slide.content} />
+              )}
+            </div>
           </div>
         ))}
       </div>

@@ -127,6 +127,7 @@
     "nanoid": "^5.0.9",
     "next": "14.2.23",
     "next-themes": "^0.3.0",
+    "platejs": "^49.2.4",
     "pptxgenjs": "^4.0.1",
     "prisma": "^5.22.0",
     "prismjs": "^1.29.0",

@@ -44,7 +44,7 @@ export const PresentationImageElement = withHOC(
       const [isGenerating, setIsGenerating] = useState(false);
       const [error, setError] = useState<string | undefined>(undefined);
       const [imageUrl, setImageUrl] = useState<string | undefined>(
-        props.element.url
+        props.element.url === 'placeholder' ? '/api/placeholder' : props.element.url
       );
       const { imageModel } = usePresentationState();
       const hasHandledGenerationRef = useRef(false);
@@ -93,17 +93,20 @@ export const PresentationImageElement = withHOC(
 
       // Generate image if query is provided but no URL exists
       useEffect(() => {
-        // Skip if in read-only mode, we've already handled this element, or if there's no query or if URL already exists
+        // Skip if in read-only mode, we've already handled this element, or if there's no query
+        // Only skip if we have a real URL (not placeholder)
+        const hasRealUrl = props.element.url && props.element.url !== 'placeholder';
+        
         if (
           hasHandledGenerationRef.current ||
           !props.element.query ||
-          props.element.url ||
-          imageUrl
+          hasRealUrl ||
+          (imageUrl && imageUrl !== '/api/placeholder')
         ) {
           return;
         }
 
-        // Use the same generateImage function we defined above
+        // Generate image if we have a query but only placeholder URL
         if (props.element.query) {
           void generateImage(props.element.query);
         }

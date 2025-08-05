@@ -40,14 +40,14 @@ export async function POST(req: Request) {
       - Each <SECTION> tag must have a 'page_number' attribute, starting from 1.
       - Use simple tags like <H1>, <H2>, <P>, <B>, <I>, etc.
       - You can use layouts by adding a 'layout' attribute to the <SECTION> tag (e.g., layout="left", layout="right", layout="vertical").
-      - To suggest an image, use an <IMG> tag with an 'alt' attribute describing the image. The 'src' attribute should be a placeholder. E.g., <IMG src="placeholder.png" alt="A high-tech server room with glowing blue lights">.
+      - To suggest an image, use an <IMG> tag with an 'alt' attribute describing the image. The 'src' attribute should be "placeholder" (no extension). E.g., <IMG src="placeholder" alt="A high-tech server room with glowing blue lights"/>.
       - Your response MUST be only the XML-like content. Do not include any other text, markdown, or explanations.
       - Ensure all tags are properly closed.
       **Example of a single SECTION:**
       <SECTION page_number="1" layout="left">
         <H1>The Dawn of AI</H1>
         <P>Exploring the early concepts and foundational algorithms that paved the way for modern artificial intelligence.</P>
-        <IMG src="placeholder.png" alt="A vintage black and white photo of an early computer."/>
+        <IMG src="placeholder" alt="A vintage black and white photo of an early computer."/>
       </SECTION>
       Now, generate the complete presentation content for the provided details.
     `;
@@ -57,7 +57,33 @@ export async function POST(req: Request) {
       prompt: prompt,
     });
 
-    return result.toTextStreamResponse();
+    // Transform the stream to match the expected JSON format
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of result.textStream) {
+            // Wrap each chunk in the expected JSON format
+            const jsonChunk = JSON.stringify({
+              type: "status-update",
+              data: chunk,
+              metadata: { author: "Gemini" }
+            }) + "\n";
+            controller.enqueue(encoder.encode(jsonChunk));
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Transfer-Encoding": "chunked",
+      },
+    });
   } catch (error) {
     console.error("Error in presentation generation:", error);
     const errorMessage =

@@ -130,20 +130,16 @@ const PresentationEditor = React.memo(
     const editor = useMemo(() => createEditor(), []);
 
     useEffect(() => {
-      if (initialContent) {
-        setTimeout(() => {
-          editor.tf.setValue(initialContent.content);
-        }, 0);
+      if (initialContent?.content) {
+        editor.tf.setValue(initialContent.content);
       }
-    }, []);
+    }, [editor, initialContent]);
 
     useEffect(() => {
       if (isGenerating) {
-        setTimeout(() => {
-          editor.tf.setValue(initialContent?.content);
-        }, 0);
+        editor.tf.setValue(initialContent?.content);
       }
-    }, [initialContent, isGenerating]);
+    }, [editor, initialContent, isGenerating]);
 
     const debouncedOnChange = useRef(
       debounce(
