@@ -5,6 +5,7 @@ import { usePresentationState } from "@/states/presentation-state";
 import { SlideParser } from "../utils/parser";
 import { updatePresentation } from "@/app/_actions/presentation/presentationActions";
 import { useCompletion } from "@ai-sdk/react";
+import { useImageGenerator } from "@/hooks/presentation/useImageGenerator";
 
 interface StreamMetadata {
   author?: string;
@@ -33,6 +34,7 @@ export function PresentationGenerationManager() {
     setIsGeneratingPresentation,
     setDetailLogs,
   } = usePresentationState();
+  const { generateImagesForAllSlides } = useImageGenerator();
 
   const streamingParserRef = useRef<SlideParser>(new SlideParser());
   const slidesRafIdRef = useRef<number | null>(null);
@@ -250,17 +252,19 @@ export function PresentationGenerationManager() {
 
       parser.finalize();
       parser.clearAllGeneratingMarks();
-
-      const slides = parser.getAllSlides();
-      slidesBufferRef.current = slides;
-      slidesRafIdRef.current = requestAnimationFrame(updateSlidesWithRAF);
+      const finalSlides = parser.getAllSlides();
+      slidesBufferRef.current = finalSlides;
+      if (slidesRafIdRef.current) {
+        cancelAnimationFrame(slidesRafIdRef.current);
+      }
+      updateSlidesWithRAF(); // Update UI immediately with final text content
 
       const { currentPresentationId, currentPresentationTitle, theme } =
         usePresentationState.getState();
       if (currentPresentationId) {
-        void updatePresentation({
+        await updatePresentation({ // Use await here
           id: currentPresentationId,
-          content: { slides: slides },
+          content: { slides: finalSlides },
           title: currentPresentationTitle ?? "",
           theme,
         });
@@ -268,9 +272,17 @@ export function PresentationGenerationManager() {
 
       setIsGeneratingPresentation(false);
       setShouldStartPresentationGeneration(false);
-      if (slidesRafIdRef.current !== null) {
-        cancelAnimationFrame(slidesRafIdRef.current);
-        slidesRafIdRef.current = null;
+      
+      // *** NEW: TRIGGER IMAGE GENERATION ***
+      await generateImagesForAllSlides();
+
+      // Final save after images are generated
+      const latestSlides = usePresentationState.getState().slides;
+      if (currentPresentationId) {
+        await updatePresentation({
+          id: currentPresentationId,
+          content: { slides: latestSlides },
+        });
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -280,6 +292,12 @@ export function PresentationGenerationManager() {
       }
       resetGeneration();
       parser.reset();
+      if (slidesRafIdRef.current !== null) {
+        cancelAnimationFrame(slidesRafIdRef.current);
+        slidesRafIdRef.current = null;
+      }
+    }
+    finally {
       if (slidesRafIdRef.current !== null) {
         cancelAnimationFrame(slidesRafIdRef.current);
         slidesRafIdRef.current = null;

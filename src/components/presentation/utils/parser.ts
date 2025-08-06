@@ -283,11 +283,6 @@ export class SlideParser {
 
     return newSlides;
   }
-
-  /**
-   * Extract SECTION blocks from the buffer, handling incomplete tags
-   * and PRESENTATION wrapper tag
-   */
   private extractCompleteSections(): void {
     let startIdx = 0;
     let extractedSectionEndIdx = 0;
@@ -375,11 +370,6 @@ export class SlideParser {
       this.buffer = this.buffer.substring(extractedSectionEndIdx);
     }
   }
-
-  /**
-   * Generate a section identifier to track the same section across updates
-   * This helps maintain the same ID when the section is updated
-   */
   private generateSectionIdentifier(sectionNode: XMLNode): string {
     // 优先使用 page_number 作为唯一标识
     if (sectionNode.attributes && sectionNode.attributes.page_number) {

@@ -43,9 +43,9 @@ export const PresentationImageElement = withHOC(
       const [isSheetOpen, setIsSheetOpen] = useState(false);
       const [isGenerating, setIsGenerating] = useState(false);
       const [error, setError] = useState<string | undefined>(undefined);
-      const [imageUrl, setImageUrl] = useState<string | undefined>(
-        props.element.url === 'placeholder' ? '/api/placeholder' : props.element.url
-      );
+      const [localImageUrl, setLocalImageUrl] = useState<string | undefined>(
+    props.element.url === "placeholder" ? "/placeholder.svg" : props.element.url
+  );
       const { imageModel } = usePresentationState();
       const hasHandledGenerationRef = useRef(false);
 
@@ -62,27 +62,13 @@ export const PresentationImageElement = withHOC(
         try {
           hasHandledGenerationRef.current = true;
           const result = await generateImageAction(prompt, imageModel);
-          if (
-            result &&
-            typeof result === "object" &&
-            "success" in result &&
-            result.success === true &&
-            result.image?.url
-          ) {
-            const newImageUrl = result.image.url;
-            setImageUrl(newImageUrl);
-
-            // Update the element's URL and query in the editor
-            setNode(editor, props.element, {
-              url: newImageUrl,
-              query: prompt,
-            });
-
-            // Force an immediate save to ensure the image URL is persisted
-            setTimeout(() => {
-              void saveImmediately();
-            }, 500);
-          }
+          if (result.image?.url) {
+        setLocalImageUrl(result.image.url); // Update local state only
+        // Update the Plate model, but this won't trigger a full re-render
+        setNode(editor, props.element, {
+          url: result.image.url,
+        });
+      }
         } catch (error) {
           console.error("Error generating image:", error);
           setError("Failed to generate image. Please try again.");
@@ -93,29 +79,21 @@ export const PresentationImageElement = withHOC(
 
       // Generate image if query is provided but no URL exists
       useEffect(() => {
-        // Skip if in read-only mode, we've already handled this element, or if there's no query
-        // Only skip if we have a real URL (not placeholder)
-        const hasRealUrl = props.element.url && props.element.url !== 'placeholder';
-        
-        if (
-          hasHandledGenerationRef.current ||
-          !props.element.query ||
-          hasRealUrl ||
-          (imageUrl && imageUrl !== '/api/placeholder')
-        ) {
-          return;
-        }
+    const hasRealUrl = localImageUrl && localImageUrl !== "/placeholder.svg";
+    if (
+      readOnly ||
+      hasHandledGenerationRef.current ||
+      !props.element.query ||
+      hasRealUrl
+    ) {
+      return;
+    }
 
-        // Generate image if we have a query but only placeholder URL
-        if (props.element.query) {
-          void generateImage(props.element.query);
-        }
-      }, [
-        props.element.query,
-        props.element.url,
-        imageUrl,
-        props.element.setNodeValue,
-      ]);
+    if (props.element.query) {
+      generateImage(props.element.query);
+      hasHandledGenerationRef.current = true; // Mark as handled
+    }
+  }, [props.element.query, localImageUrl, readOnly]);
 
       return (
         <>
@@ -164,7 +142,7 @@ export const PresentationImageElement = withHOC(
                           isDragging && "opacity-50"
                         )}
                         alt={props.element.query ?? ""}
-                        src={imageUrl}
+                        src={localImageUrl}
                         onError={(e) => {
                           console.error(
                             "Presentation image failed to load:",

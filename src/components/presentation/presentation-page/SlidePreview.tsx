@@ -37,7 +37,7 @@ function SimpleContentRenderer({ content }: { content: PlateNode[] }) {
       case 'p':
         return <p key={index} className="text-xs mb-1">{children}</p>;
       case 'img':
-        const imageUrl = element.url === 'placeholder' ? '/api/placeholder' : element.url;
+        const imageUrl = element.url === 'placeholder' ? '/placeholder.svg' : element.url;
         return imageUrl ? (
           <Image 
             key={index} 
